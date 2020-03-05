@@ -1,5 +1,4 @@
 #include "lora_demo.h"
-#include "HTS221.h"
 #include "RHF76.h"
 
 /*
@@ -91,7 +90,6 @@ void application_entry(void *arg)
     int16_t temperature;
     int16_t humidity;
 
-    HTS221_Init();
 
     rhf76_lora_init(HAL_UART_PORT_1);
     tos_lora_module_recvcb_register(recv_callback);
@@ -99,9 +97,9 @@ void application_entry(void *arg)
     tos_lora_module_join_otaa("8cf957200000fa57", "8cf957200000fa572059aaaaad204a72");
 
     while (1) {
-        HTS221_Get_Temperature(&temperature);
-        HTS221_Get_Humidity(&humidity);
-
+        temperature = 300;
+        humidity = 800;
+        
         printf("temperature: %2.1f\n", temperature / 10.0);
         printf("humidity   : %2.1f\n", humidity / 10.0);
 

@@ -1,11 +1,30 @@
+/*----------------------------------------------------------------------------
+ * Tencent is pleased to support the open source community by making TencentOS
+ * available.
+ *
+ * Copyright (C) 2019 THL A29 Limited, a Tencent company. All rights reserved.
+ * If you have downloaded a copy of the TencentOS binary from Tencent, please
+ * note that the TencentOS binary is licensed under the BSD 3-Clause License.
+ *
+ * If you have downloaded a copy of the TencentOS source code from Tencent,
+ * please note that TencentOS source code is licensed under the BSD 3-Clause
+ * License, except for the third-party components listed below which are
+ * subject to different license terms. Your integration of TencentOS into your
+ * own projects may require compliance with the BSD 3-Clause License, as well
+ * as the other licenses applicable to the third-party components included
+ * within TencentOS.
+ *---------------------------------------------------------------------------*/
+
 #ifndef _TOS_SLIST_H_
 #define  _TOS_SLIST_H_
 
+__CDECLS_BEGIN
+
 typedef struct k_slist_node_st {
-	struct k_slist_node_st *next;
+    struct k_slist_node_st *next;
 } k_slist_t;
 
-#define TOS_SLIST_NODE(node) \
+#define TOS_SLIST_NODE(dummy) \
     { K_NULL }
 
 #define TOS_SLIST_DEFINE(slist) \
@@ -147,10 +166,24 @@ __API__ __STATIC_INLINE__ int tos_slist_length(k_slist_t *slist)
     return len;
 }
 
+__API__ __STATIC_INLINE__ int tos_slist_contains(k_slist_t *node, k_slist_t *slist)
+{
+    while (slist->next) {
+        if (slist->next == node) {
+            return K_TRUE;
+        }
+
+        slist = slist->next;
+    }
+
+    return K_FALSE;
+}
 __API__ __STATIC_INLINE__ int tos_slist_empty(k_slist_t *slist)
 {
     return !slist->next;
 }
+
+__CDECLS_END
 
 #endif /* _TOS_SLIST_H_ */
 

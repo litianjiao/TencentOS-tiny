@@ -19,10 +19,6 @@
 
 __STATIC_INLINE__ void task_reset(k_task_t *task)
 {
-#if TOS_CFG_OBJECT_VERIFY_EN > 0u
-    knl_object_deinit(&task->knl_obj);
-#endif
-
 #if TOS_CFG_TASK_DYNAMIC_CREATE_EN > 0u
     knl_object_alloc_reset(&task->knl_obj);
 
@@ -49,6 +45,7 @@ __STATIC_INLINE__ void task_reset(k_task_t *task)
     task->mail_size     = 0;
 #endif
 
+    TOS_OBJ_DEINIT(task);
 }
 
 __STATIC__ void task_exit(void)
@@ -99,7 +96,10 @@ __API__ k_err_t tos_task_create(k_task_t *task,
     TOS_PTR_SANITY_CHECK(entry);
     TOS_PTR_SANITY_CHECK(stk_base);
 
-    if (unlikely(stk_size < sizeof(cpu_context_t))) {
+    /* try to re-create a task, kind of dangerous */
+    TOS_OBJ_TEST_RC(task, KNL_OBJ_TYPE_TASK, K_ERR_TASK_ALREADY_CREATED);
+
+    if (unlikely(stk_size < K_TASK_STK_SIZE_MIN)) {
         return K_ERR_TASK_STK_SIZE_INVALID;
     }
 
@@ -114,10 +114,7 @@ __API__ k_err_t tos_task_create(k_task_t *task,
     task_reset(task);
     tos_list_add(&task->stat_list, &k_stat_list);
 
-#if TOS_CFG_OBJECT_VERIFY_EN > 0u
-    knl_object_init(&task->knl_obj, KNL_OBJ_TYPE_TASK);
-#endif
-
+    TOS_OBJ_INIT(task, KNL_OBJ_TYPE_TASK);
 #if TOS_CFG_TASK_DYNAMIC_CREATE_EN > 0u
     knl_object_alloc_set_static(&task->knl_obj);
 #endif
@@ -125,10 +122,10 @@ __API__ k_err_t tos_task_create(k_task_t *task,
     task->sp        = cpu_task_stk_init((void *)entry, arg, (void *)task_exit, stk_base, stk_size);
     task->entry     = entry;
     task->arg       = arg;
-    task->name      = name;
     task->prio      = prio;
     task->stk_base  = stk_base;
     task->stk_size  = stk_size;
+    strncpy(task->name, name, K_TASK_NAME_MAX);
 
 #if TOS_CFG_ROUND_ROBIN_EN > 0u
     task->timeslice_reload = timeslice;
@@ -190,21 +187,9 @@ __STATIC__ k_err_t task_do_destroy(k_task_t *task)
     return K_ERR_NONE;
 }
 
-__API__ k_err_t tos_task_destroy(k_task_t *task)
+__STATIC__ k_err_t task_destroy_static(k_task_t *task)
 {
-    TOS_IN_IRQ_CHECK();
-
-    if (unlikely(!task)) {
-        task = k_curr_task;
-    }
-
-    TOS_OBJ_VERIFY(task, KNL_OBJ_TYPE_TASK);
-
-    if (knl_is_self(task) && knl_is_sched_locked()) {
-        return K_ERR_SCHED_LOCKED;
-    }
-
-#if TOS_CFG_TASK_DYNAMIC_CREATE_EN
+#if TOS_CFG_TASK_DYNAMIC_CREATE_EN > 0u
     if (!knl_object_alloc_is_static(&task->knl_obj)) {
         return K_ERR_OBJ_INVALID_ALLOC_TYPE;
     }
@@ -221,7 +206,7 @@ __STATIC__ void task_free(k_task_t *task)
     tos_mmheap_free(task);
 }
 
-__KERNEL__ void task_free_all(void)
+__KNL__ void task_free_all(void)
 {
     TOS_CPU_CPSR_ALLOC();
     k_task_t *task, *tmp;
@@ -290,25 +275,9 @@ __API__ k_err_t tos_task_create_dyn(k_task_t **task,
     return K_ERR_NONE;
 }
 
-__API__ k_err_t tos_task_destroy_dyn(k_task_t *task)
+__STATIC__ k_err_t task_destroy_dyn(k_task_t *task)
 {
     k_err_t err;
-
-    TOS_IN_IRQ_CHECK();
-
-    if (unlikely(!task)) {
-        task = k_curr_task;
-    }
-
-    TOS_OBJ_VERIFY(task, KNL_OBJ_TYPE_TASK);
-
-    if (knl_is_self(task) && knl_is_sched_locked()) {
-        return K_ERR_SCHED_LOCKED;
-    }
-
-    if (!knl_object_alloc_is_dynamic(&task->knl_obj)) {
-        return K_ERR_OBJ_INVALID_ALLOC_TYPE;
-    }
 
     tos_knl_sched_lock();
 
@@ -332,6 +301,29 @@ __API__ k_err_t tos_task_destroy_dyn(k_task_t *task)
 }
 
 #endif
+
+__API__ k_err_t tos_task_destroy(k_task_t *task)
+{
+    TOS_IN_IRQ_CHECK();
+
+    if (unlikely(!task)) {
+        task = k_curr_task;
+    }
+
+    TOS_OBJ_VERIFY(task, KNL_OBJ_TYPE_TASK);
+
+    if (knl_is_self(task) && knl_is_sched_locked()) {
+        return K_ERR_SCHED_LOCKED;
+    }
+
+#if TOS_CFG_TASK_DYNAMIC_CREATE_EN > 0u
+    if (knl_object_alloc_is_dynamic(&task->knl_obj)) {
+        return task_destroy_dyn(task);
+    }
+#endif
+
+    return task_destroy_static(task);
+}
 
 __API__ void tos_task_yield(void)
 {
