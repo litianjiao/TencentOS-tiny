@@ -46,9 +46,15 @@ void application_entry(void *arg)
     
     init_params.read_buf_size = 1024;
     init_params.write_buf_size = 1024;
+    
+#ifdef MQTT_NETWORK_TYPE_TLS
     init_params.connect_params.network_params.network_ssl_params.ca_crt = test_ca_get();
-    init_params.connect_params.network_params.addr = "www.jiejie01.top";
     init_params.connect_params.network_params.port = "8883";
+#else
+    init_params.connect_params.network_params.port = "1883";
+#endif
+    init_params.connect_params.network_params.addr = "www.jiejie01.top"; //"47.95.164.112";//"jiejie01.top"; //"129.204.201.235"; //"192.168.1.101";
+
     init_params.connect_params.user_name = random_string(10); 
     init_params.connect_params.password = random_string(10); 
     init_params.connect_params.client_id = random_string(10);
@@ -63,11 +69,15 @@ void application_entry(void *arg)
     LOG_D("mqtt connect error is %#x", error);
     
     mqtt_subscribe(&client, "tos-topic", QOS0, tos_topic_handler);
-
+    
+    LOG_D("mqtt subscribe error is %#x", error);
+    
     memset(&msg, 0, sizeof(msg));
 
     for (;;) {
-
+        
+        sprintf(buf, "welcome to mqttclient, this is a publish test, a rand number: %d ...", random_number());
+        
         msg.qos = QOS0;
         msg.payload = (void *) buf;
         
