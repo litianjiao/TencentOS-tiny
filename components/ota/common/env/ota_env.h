@@ -21,8 +21,9 @@
 #include "stdint.h"
 #include "ota_flash.h"
 #include "ota_partition.h"
+#include "ota_err.h"
 
-int ota_env_init(ota_updt_type_t updt_type, uint32_t partition_addr, ota_flash_drv_t *flash_drv, ota_flash_prop_t *flash_prop);
+ota_err_t ota_env_init(ota_updt_type_t updt_type, uint32_t partition_addr, ota_flash_drv_t *flash_drv, ota_flash_prop_t *flash_prop);
 
 #endif /* _OTA_ENV_H_ */
 
